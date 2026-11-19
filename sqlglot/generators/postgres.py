@@ -224,6 +224,19 @@ def _json_extract_sql(
     return _generate
 
 
+def _json_object_agg_sql(self: PostgresGenerator, expression: exp.JSONObjectAgg) -> str:
+    key_value = seq_get(expression.expressions, 0)
+    has_options = expression.args.get("unique_keys") is not None or any(
+        expression.args.get(arg) for arg in ("null_handling", "return_type", "encoding")
+    )
+    if isinstance(key_value, exp.JSONKeyValue) and len(expression.expressions) == 1:
+        if has_options:
+            # Only the SQL/JSON JSON_OBJECTAGG (Postgres 16+) supports these options
+            return self._jsonobject_sql(expression)
+        return self.func("JSON_OBJECT_AGG", key_value.this, key_value.expression)
+    return self.func("JSON_OBJECT_AGG", *expression.expressions)
+
+
 def _unix_to_time_sql(self: PostgresGenerator, expression: exp.UnixToTime) -> str:
     scale = expression.args.get("scale")
     timestamp = expression.this
@@ -475,7 +488,7 @@ class PostgresGenerator(generator.Generator):
         exp.Unicode: rename_func("ASCII"),
         exp.UnixToTime: _unix_to_time_sql,
         exp.Levenshtein: _levenshtein_sql,
-        exp.JSONObjectAgg: rename_func("JSON_OBJECT_AGG"),
+        exp.JSONObjectAgg: _json_object_agg_sql,
         exp.JSONBObjectAgg: rename_func("JSONB_OBJECT_AGG"),
         exp.CountIf: count_if_to_sum,
         exp.FileFormatProperty: lambda self, e: f"USING {self.sql(e, 'this')}",

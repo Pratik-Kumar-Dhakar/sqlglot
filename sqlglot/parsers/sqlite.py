@@ -24,12 +24,15 @@ def _build_date(args: list) -> exp.Date | exp.Anonymous:
     return exp.Anonymous(this="DATE", expressions=args)
 
 
-def _build_strftime(args: list, dialect: t.Any) -> exp.Anonymous | exp.TimeToStr:
+def _build_strftime(args: list, dialect: t.Any) -> exp.Anonymous | exp.TimeToStr | exp.TimeToUnix:
     if 1 <= len(args) <= 2:
-        return exp.TimeToStr(
-            this=_build_time_value(seq_get(args, 1), as_timestamp=True),
-            format=dialect.format_time(args[0]),
-        )
+        this = _build_time_value(seq_get(args, 1), as_timestamp=True)
+        # A lone '%s' is the Unix time in seconds, e.g. STRFTIME('%s', 'now')
+        if args[0].is_string and args[0].name == "%s":
+            # Drop the format, so the argument count is validated against TimeToUnix
+            args.pop(0)
+            return exp.TimeToUnix(this=this)
+        return exp.TimeToStr(this=this, format=dialect.format_time(args[0]))
     return exp.Anonymous(this="STRFTIME", expressions=args)
 
 

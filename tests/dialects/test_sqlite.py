@@ -1338,6 +1338,15 @@ class TestSQLite(Validator):
             "SELECT STRFTIME('%s')",
             "SELECT STRFTIME('%s', 'now')",
         )
+        self.validate_all("SELECT STRFTIME('%s', ts)", read={"duckdb": "SELECT EPOCH(ts)"})
+        self.validate_all(
+            "SELECT STRFTIME('%s', '2024-01-01 00:00:05')",
+            write={
+                "duckdb": "SELECT EPOCH(CAST('2024-01-01 00:00:05' AS TIMESTAMP))",
+                "postgres": "SELECT DATE_PART('epoch', CAST('2024-01-01 00:00:05' AS TIMESTAMP))",
+                "sqlite": "SELECT STRFTIME('%s', '2024-01-01 00:00:05')",
+            },
+        )
 
         self.validate_all(
             "SELECT STRFTIME('%Y-%m-%d', '2020-01-01 12:05:03')",
